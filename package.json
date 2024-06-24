@@ -1,0 +1,46 @@
+{
+  "name": "query-example-react-basic-typescript",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:db dev:frontend",
+    "dev:db": "convex dev",
+    "dev:frontend": "vite --open --clearScreen false",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:types": "tsc"
+  },
+  "dependencies": {
+    "@tanstack/query-sync-storage-persister": "^5.40.0",
+    "@tanstack/react-query": "^5.40.1",
+    "@tanstack/react-query-devtools": "^5.40.1",
+    "@tanstack/react-query-persist-client": "^5.40.1",
+    "axios": "^1.6.8",
+    "convex": "^1.12.2",
+    "react": "18.3",
+    "react-dom": "18.3"
+  },
+  "devDependencies": {
+    "@tanstack/eslint-plugin-query": "^5.35.6",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
+    "@vitejs/plugin-react": "^4.2.1",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "5.3.3",
+    "vite": "^5.2.11"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
