@@ -2,34 +2,7 @@
 
 Want to use Convex in an app that uses React Query?
 
-## Simple setup
-
-1. Construct a Convex Query client
-
-```ts
-const convexClient = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
-const convexQueryClient = new ConvexQueryClient(convexClient);
-const queryClient = new QueryClient();
-convexQueryClient.connect(queryClient);
-```
-
-2. Use the Convex `api` functions and specify the Convex values for
-   queryFn and queryKeyHashFn.
-
-```ts
-const { isPending, error, data, isFetching } = useQuery({
-  queryKey: [api.repos.get, { repo: "made/up" }],
-  queryFn: convexQueryClient.queryFn,
-  queryKeyHashFn: convexQueryClient.queryKeyHashFn,
-  // You may want a lower than usual GC time because
-  // Convex remains subscribed to queries until GC'd.
-  gcTime: 10000,
-});
-```
-
 ## Global setup
-
-Want something more convenient?
 
 1. Set queryFn and queryKeyHashFn globally.
 
