@@ -2,21 +2,19 @@
 import { useState } from "react";
 import ReactDOM from "react-dom/client";
 import {
-  QueryCache,
   QueryClient,
   QueryClientProvider,
-  QueryFunctionContext,
+  useMutation,
   useQuery,
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { ConvexReactClient, Watch } from "convex/react";
+import { ConvexReactClient } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { convexToJson } from "convex/values";
-import { FunctionReference, getFunctionName } from "convex/server";
 import { ConvexQueryClient, convexQueryKeyHashFn } from "./lib";
 
-// TODO we don't need both of these
-const convexClient = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
+const convexClient = new ConvexReactClient(
+  (import.meta as any).env.VITE_CONVEX_URL
+);
 const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,13 +28,32 @@ const queryClient = new QueryClient({
 convexQueryClient.connect(queryClient);
 
 export default function App() {
+  // TODO what should mutations look like?
+  // There's no need to invalidate, so do we really need anything special?
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Body />
+      <ReactQueryDevtools initialIsOpen />
+    </QueryClientProvider>
+  );
+}
+
+function Body() {
+  const { mutate, isPending } = useMutation({
+    mutationFn: () =>
+      convexClient.mutation(api.repos.star, { repo: "made/up" }),
+  });
+
   const [topShown, setTopShown] = useState(true);
   const [middleTopShown, setMiddleTopShown] = useState(true);
   const [middleBottomShown, setMiddleBottomShown] = useState(true);
   const [bottomShown, setBottomShown] = useState(true);
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <div>
+      <button onClick={() => mutate()}>Ask a friend to a star</button>
+      {isPending ? "***" : ""}
       <button onClick={() => setTopShown(!topShown)}>
         {topShown ? "hide" : "show"}
       </button>
@@ -53,13 +70,12 @@ export default function App() {
         {bottomShown ? "hide" : "show"}
       </button>
       {bottomShown && <Example />}
-      <ReactQueryDevtools initialIsOpen />
-    </QueryClientProvider>
+    </div>
   );
 }
 
 function Example() {
-  const [, setRerender] = useState(false); // We don't need the state value, just the updater function
+  const [, setRerender] = useState(false);
   const forceRerender = () => {
     setRerender((prev) => !prev); // Toggle the state to force a rerender
   };
@@ -72,6 +88,7 @@ function Example() {
 
   if (isPending) return "Loading...";
 
+  // TODO Errors should just work, but test it
   if (error) return "An error has occurred: " + error.message;
 
   return (

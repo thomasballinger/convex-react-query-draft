@@ -1,6 +1,6 @@
 import axios from "axios";
 import { v } from "convex/values";
-import { action, internalMutation, query } from "./_generated/server";
+import { action, internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 /**
@@ -43,5 +43,24 @@ export const get = query({
       .first();
     if (result === null) throw new Error("oops");
     return { ...result.data, name: repo };
+  },
+});
+
+export const star = mutation({
+  args: { repo: v.string() },
+  handler: async (ctx, { repo }) => {
+    const result = await ctx.db
+      .query("repoData")
+      .withIndex("by_last_repo_data")
+      .filter((q) => q.eq(q.field("repo"), repo))
+      .first();
+    if (result === null) throw new Error("oops");
+    await ctx.db.replace(result._id, {
+      ...result,
+      data: {
+        ...result.data,
+        stargazers_count: result.data.stargazers_count + 1,
+      },
+    });
   },
 });
