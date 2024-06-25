@@ -4,15 +4,13 @@ Want to use Convex in an app that uses React Query?
 
 ## Global setup
 
-1. Set queryFn and queryKeyHashFn globally.
+1. Set queryKeyHashFn globally.
 
 ```ts
 const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
-    queryFn: convexQueryClient.queryFn,
-    queryKeyHashFn: convexQueryClient.queryKeyHashFn,
-    gcTime: 10000,
+    queryKeyHashFn: convexQueryKeyHashFn,
   },
 });
 convexQueryClient.connect(queryClient);
@@ -21,13 +19,13 @@ convexQueryClient.connect(queryClient);
 2. Use just the query key to query.
 
 ```ts
-const { isPending, error, data, isFetching } = useQuery({
+const { isPending, error, data } = useQuery({
   queryKey: [api.repos.get, { repo: "made/up" }],
+  queryFn: convexQueryClient.queryFn,
+  gcTime: 10000, // unsubscribe after 10s of no use
+  staleTime: Infinity,
 });
 ```
-
-TODO: If you need other fetch functions, override them at call sites or
-pass in next queryFn and queryKeyHashFn.
 
 ## Query Key Factory
 
@@ -43,7 +41,7 @@ convexQueryClient.connect(queryClient);
 2. Use the query key factory
 
 ```ts
-const { isPending, error, data, isFetching } = useQuery(
+const { isPending, error, data } = useQuery(
   convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" }),
 });
 ```
