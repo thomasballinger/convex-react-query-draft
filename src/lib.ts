@@ -4,7 +4,11 @@ import {
   QueryFunctionContext,
   hashKey,
 } from "@tanstack/react-query";
-import { ConvexReactClient, Watch } from "convex/react";
+import {
+  ConvexReactClient,
+  ConvexReactClientOptions,
+  Watch,
+} from "convex/react";
 import { FunctionReference, getFunctionName } from "convex/server";
 import { convexToJson } from "convex/values";
 
@@ -15,6 +19,18 @@ function isConvexQuery(
   return !!(queryKey[0] && queryKey[0][functionName]);
 }
 
+/**
+ * Set this globally to use Convex query functions.
+ *
+ * ```ts
+ * const queryClient = new QueryClient({
+ *   defaultOptions: {
+ *    queries: {
+ *       queryKeyHashFn: convexQueryKeyHashFn
+ *     },
+ *   },
+ * });
+ */
 export const convexQueryKeyHashFn = <QueryKey extends readonly any[]>(
   queryKey: QueryKey
 ): string => {
@@ -24,8 +40,37 @@ export const convexQueryKeyHashFn = <QueryKey extends readonly any[]>(
   return hashKey(queryKey);
 };
 
-// TODO make it clear clear that Convex data is never stale, probably possible
-// by returning data from cache synchronously.
+/**
+ * Use this to specify your own fallback queryKeyHashFn:
+ *
+ * ```ts
+ * const queryClient = new QueryClient({
+ *   defaultOptions: {
+ *    queries: {
+ *       queryKeyHashFn: convexQueryKeyHashFnMiddleware(yourQueryKeyHashFn),
+ *     },
+ *   },
+ * });
+ * ```
+ */
+export const convexQueryKeyHashFnMiddleware =
+  (next: (queryKey: ReadonlyArray<unknown>) => string) =>
+  (queryKey: ReadonlyArray<unknown>) => {
+    if (isConvexQuery(queryKey)) {
+      return `convex-query-${getFunctionName(queryKey[0])}-${JSON.stringify(convexToJson(queryKey[1]))}`;
+    }
+    return next(queryKey);
+  };
+
+export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
+  /** queryClient can also be set later by calling .connect(queryClient) */
+  queryClient?: QueryClient;
+}
+
+/**
+ * Client that subscribes to events from a TanStack Query QueryClient and populates
+ * query results in it for Convex Queries.
+ */
 export class ConvexQueryClient {
   convexClient: ConvexReactClient;
   subscriptions: Record<
@@ -38,12 +83,22 @@ export class ConvexQueryClient {
   >;
   unsubscribe: (() => void) | undefined;
   queryClient: QueryClient | undefined;
-  constructor(client: ConvexReactClient, queryClient?: QueryClient) {
-    this.convexClient = client;
+  constructor(
+    /** A ConvexReactClient instance or a URL to use to instantiate one. */
+    client: ConvexReactClient | string,
+    options: ConvexQueryClientOptions = {}
+  ) {
+    if (typeof client === "string") {
+      this.convexClient = new ConvexReactClient(client, options);
+    } else {
+      this.convexClient = client as ConvexReactClient;
+    }
     this.subscriptions = {};
-    if (queryClient) {
-      this.queryClient = queryClient;
-      this.unsubscribe = this.subscribeInner(queryClient.getQueryCache());
+    if (options.queryClient) {
+      this.queryClient = options.queryClient;
+      this.unsubscribe = this.subscribeInner(
+        options.queryClient.getQueryCache()
+      );
     }
   }
   connect(queryClient: QueryClient) {
@@ -156,7 +211,30 @@ export class ConvexQueryClient {
     return data;
   };
 
-  // TODO queryFnWithDefault
-  // the types are a bit involved, it's Convex types if it's a convex function
-  // otherwise whatever the next thing is.
+  /**
+   *
+   * ```
+   * useQuery(convexQueryOptions(api.foo.bar, args))
+   * ```
+   *
+   * If you need to specify other options spread it:
+   * ```
+   * useQuery({
+   *   ...convexQueryOptions(api.foo.bar, args),
+   *   placeholderData: { name: "me" }
+   * });
+   *
+   *
+   */
+  convexQueryOptions<Query extends FunctionReference<"query", "public">>(
+    query: Query,
+    args: Query["_args"]
+  ) {
+    const queryKey: readonly [Query, Query["_args"]] = [query, args];
+    return {
+      queryFn: this.queryFn,
+      queryKey,
+      staleTime: Infinity,
+    };
+  }
 }
