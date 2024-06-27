@@ -62,3 +62,8 @@ To run this example:
 - auth
 - paginated queries
 - skip token?
+
+# Contributing
+
+After cloning this repo run `npm i` to install dependencies.
+This package uses [tshy](https://github.com/isaacs/tshy) to publish ESM and CJS builds.

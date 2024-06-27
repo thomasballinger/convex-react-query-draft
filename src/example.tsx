@@ -9,8 +9,8 @@ import {
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConvexReactClient } from "convex/react";
-import { api } from "../convex/_generated/api";
-import { ConvexQueryClient, convexQueryKeyHashFn } from "./lib";
+import { api } from "../convex/_generated/api.js";
+import { ConvexQueryClient, convexQueryKeyHashFn } from "./index.js";
 import "./styles.css";
 
 // Build a global convexClient wherever you would normally create a TanStack Query client.
@@ -79,6 +79,9 @@ function Example() {
     ...convexQueryClient.convexQueryOptions(api.repos.get, { repo: "made/up" }),
     gcTime: 10000,
   });
+  if (JSON.stringify(data) !== JSON.stringify(data2)) {
+    throw new Error("Both syntaxes should work");
+  }
 
   if (isPending) return "Loading...";
 

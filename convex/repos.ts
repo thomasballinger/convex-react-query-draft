@@ -1,7 +1,12 @@
 import axios from "axios";
 import { v } from "convex/values";
-import { action, internalMutation, mutation, query } from "./_generated/server";
-import { internal } from "./_generated/api";
+import {
+  action,
+  internalMutation,
+  mutation,
+  query,
+} from "./_generated/server.js";
+import { internal } from "./_generated/api.js";
 
 /**
  * GitHub API endpoint for a repo
