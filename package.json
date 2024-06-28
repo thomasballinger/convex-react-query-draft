@@ -1,5 +1,6 @@
 {
-  "name": "query-example-react-basic-typescript",
+  "name": "convex-tanstack-query",
+  "version": "0.0.0-alpha.0",
   "type": "module",
   "scripts": {
     "dev": "npm-run-all --parallel dev:db dev:frontend",
