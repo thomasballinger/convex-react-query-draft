@@ -6,6 +6,7 @@ import {
   QueryClientProvider,
   useMutation,
   useQuery,
+  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConvexReactClient } from "convex/react";
@@ -69,19 +70,15 @@ function Example() {
   const forceRerender = () => setRerender({});
 
   const { isPending, error, data } = useQuery({
-    queryKey: [api.repos.get, { repo: "made/up" }],
-    queryFn: convexQueryClient.queryFn,
-    gcTime: 10000,
-    staleTime: Infinity,
+    ...convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" }),
   });
-  const { data: data2 } = useQuery({
-    // TODO make this shorter
-    ...convexQueryClient.convexQueryOptions(api.repos.get, { repo: "made/up" }),
-    gcTime: 10000,
-  });
-  if (JSON.stringify(data) !== JSON.stringify(data2)) {
-    throw new Error("Both syntaxes should work");
-  }
+
+  const stuff = useSuspenseQuery(
+    convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
+  );
+  const stuff2 = queryClient.ensureQueryData(
+    convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
+  );
 
   if (isPending) return "Loading...";
 

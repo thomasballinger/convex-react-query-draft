@@ -2,6 +2,7 @@ import {
   QueryCache,
   QueryClient,
   QueryFunctionContext,
+  UseQueryOptions,
   hashKey,
 } from "@tanstack/react-query";
 import {
@@ -19,6 +20,8 @@ function isConvexQuery(
   return !!(queryKey[0] && queryKey[0][functionName]);
 }
 
+// This can't be set for each query individually,
+// see https://github.com/TanStack/query/issues/4052#issuecomment-1296174282
 /**
  * Set this globally to use Convex query functions.
  *
@@ -35,7 +38,7 @@ export const convexQueryKeyHashFn = <QueryKey extends readonly any[]>(
   queryKey: QueryKey
 ): string => {
   if (isConvexQuery(queryKey)) {
-    return `convex-query-${getFunctionName(queryKey[0])}-${JSON.stringify(convexToJson(queryKey[1]))}`;
+    return `convex-query|${getFunctionName(queryKey[0])}-${JSON.stringify(convexToJson(queryKey[1]))}`;
   }
   return hashKey(queryKey);
 };
@@ -224,8 +227,9 @@ export class ConvexQueryClient {
    *   placeholderData: { name: "me" }
    * });
    * ```
+   * @deprecated this one doesnt work
    */
-  convexQueryOptions<Query extends FunctionReference<"query", "public">>(
+  queryOptionsOld<Query extends FunctionReference<"query", "public">>(
     query: Query,
     args: Query["_args"]
   ) {
@@ -233,6 +237,40 @@ export class ConvexQueryClient {
     return {
       queryFn: this.queryFn,
       queryKey,
+      staleTime: Infinity,
+    };
+  }
+
+  /**
+   * Query options factory for Convex query subscriptions.
+   *
+   * ```
+   * useQuery(convexQueryOptions(api.foo.bar, args))
+   * ```
+   *
+   * If you need to specify other options spread it:
+   * ```
+   * useQuery({
+   *   ...convexQueryOptions(api.foo.bar, args),
+   *   placeholderData: { name: "me" }
+   * });
+   * ```
+   */
+  queryOptions<Query extends FunctionReference<"query">>(
+    funcRef: Query,
+    queryArgs: Query["_args"]
+  ): Pick<
+    UseQueryOptions<
+      Query["_returnType"],
+      Error,
+      Query["_returnType"],
+      [Query, Query["_args"]]
+    >,
+    "queryKey" | "queryFn" | "staleTime"
+  > {
+    return {
+      queryKey: [funcRef, queryArgs],
+      queryFn: this.queryFn,
       staleTime: Infinity,
     };
   }
