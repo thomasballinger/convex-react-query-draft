@@ -12,6 +12,7 @@ All relevant subscriptions will be updated at the same time so there's no need t
 1. Create a ConvexClient and ConvexQueryClient
 
 ```ts
+const convexClient = new ConvexReactClient(CONVEX_URL);
 const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,6 +86,7 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 - auth
 - paginated queries
 - skip token?
+- pushing new code should invalidate, even for errors?
 
 # Contributing
 

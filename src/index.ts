@@ -197,10 +197,9 @@ export class ConvexQueryClient {
   }
 
   /**
-   * When used with a query key containing `[FunctionReference, args]`
+   * Returns a promise for the query result of a query key containing `[FunctionReference, args]`.
    *
-   *
-   * This data is often already cached!
+   * This data is often already cached.
    */
   queryFn = async <T extends FunctionReference<"query", "public">>(
     context: QueryFunctionContext<readonly [T["_returnType"], T["_args"]]>
@@ -212,6 +211,7 @@ export class ConvexQueryClient {
   };
 
   /**
+   * Query options factory for Convex query subscriptions.
    *
    * ```
    * useQuery(convexQueryOptions(api.foo.bar, args))
@@ -223,8 +223,7 @@ export class ConvexQueryClient {
    *   ...convexQueryOptions(api.foo.bar, args),
    *   placeholderData: { name: "me" }
    * });
-   *
-   *
+   * ```
    */
   convexQueryOptions<Query extends FunctionReference<"query", "public">>(
     query: Query,
