@@ -9,6 +9,8 @@ All relevant subscriptions will be pushed to the client and updated at the same 
 
 ## Setup
 
+This is in flux, see [./src/example.tsx](./src/example.tsx) for a real example.
+
 1. Create a ConvexClient and ConvexQueryClient
 
 ```ts
