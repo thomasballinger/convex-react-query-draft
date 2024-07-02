@@ -9,22 +9,21 @@ All relevant subscriptions will be pushed to the client and updated at the same 
 
 ## Setup
 
-This is in flux, see [./src/example.tsx](./src/example.tsx) for a real example.
+See [./src/example.tsx](./src/example.tsx) for a real example. The general pattern:
 
-1. Create a ConvexClient and ConvexQueryClient. Set a default `queryKeyHashFn`
-   and connect them.
+1. Create a ConvexClient and ConvexQueryClient. Set a global default `queryKeyHashFn` of `convexQueryKeyHashFn`.
 
 ```ts
-const convexClient = new ConvexReactClient(CONVEX_URL);
 const queryClient = new QueryClient({
   defaultOptions: {
     queryKeyHashFn: convexQueryKeyHashFn,
   },
 });
+const convexClient = new ConvexReactClient(CONVEX_URL);
 const convexQueryClient = new ConvexQueryClient(convexClient, { queryClient });
 ```
 
-2. Use `useQuery()` with the `api` object imported from `../convex/_generated/server` and the arguments for this query function.
+2. Use `useQuery()` with the `queryOptions` method of `convexQueryClient` on an `api` object imported from `../convex/_generated/server` and the arguments for this query function.
    These two form the query key.
 
 ```ts
@@ -54,7 +53,7 @@ To run this example:
 - `npm install`
 - `npm run dev`
 
-# Authentication
+# Authentication (example TODO)
 
 TanStack Query isn't opionated about auth; an auth code might be a an element of a query key like any other.
 With Convex it's not necessary to add an additional key for an auth code; auth is an implicit argument to all
