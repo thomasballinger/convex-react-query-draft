@@ -73,12 +73,16 @@ function Example() {
     ...convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" }),
   });
 
+  /*
   const stuff = useSuspenseQuery(
     convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
   );
+  */
+  /*
   const stuff2 = queryClient.ensureQueryData(
     convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
   );
+  */
 
   if (isPending) return "Loading...";
 

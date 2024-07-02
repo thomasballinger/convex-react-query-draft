@@ -2,10 +2,10 @@
 
 Want to use Convex in an app that uses React Query?
 
-Convex is a database with server-side (db-side?) functions that update reactively: instead of polling,
-subscribe to a server-side function and always be up to date.
+Convex is a database with server-side (db-side? like stored procedures) functions that update reactively.
+Instead of polling you subscribe to receive update from these server-side query functions.
 
-All relevant subscriptions will be updated at the same time so there's no need to call `queryClient.invalidateQueries()`.
+All relevant subscriptions will be pushed to the client and updated at the same time so data is never stale and there's no need to call `queryClient.invalidateQueries()`.
 
 ## Setup
 
@@ -80,13 +80,15 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 
 # TODO
 
-- disable some default retry behavior so errors get reported more quickly; and adding more useQuery hooks for the same query should not retry the query.
-- reset behavior after an error
+- two useQueries in the same components and an error infinite loops
+- adding more useQuery hooks for the same query should not retry the query.
 - roll this up into a library
 - auth
 - paginated queries
 - skip token?
 - pushing new code should invalidate, even for errors?
+- Ideally users never import "convex/react" so that useQuery is never offered as an autoimport;
+  re-expose these as useConvexQuery etc.
 
 # Contributing
 

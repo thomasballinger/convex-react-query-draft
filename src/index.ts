@@ -13,6 +13,21 @@ import {
 import { FunctionReference, getFunctionName } from "convex/server";
 import { convexToJson } from "convex/values";
 
+// Re-export React Query-friendly names for Convex hooks.
+// This usually prevents autocompleting `useQuery`
+export {
+  useQuery as useConvexQuery,
+  useQueries as useConvexQueries,
+  usePaginatedQuery as useConvexPaginatedQuery,
+  useMutation as useConvexMutation,
+  useAction as useConvexAction,
+  useConvex,
+  useConvexAuth,
+  // Not required if you use TanStack Query for all preloading.
+  //usePreloadedQuery as useConvexPreloadedQuery,
+  optimisticallyUpdateValueInPaginatedQuery,
+} from "convex/react";
+
 const functionName = Symbol.for("functionName");
 function isConvexQuery(
   queryKey: readonly any[]
@@ -20,8 +35,8 @@ function isConvexQuery(
   return !!(queryKey[0] && queryKey[0][functionName]);
 }
 
-// This can't be set for each query individually,
-// see https://github.com/TanStack/query/issues/4052#issuecomment-1296174282
+// This must be set globally, see
+// https://github.com/TanStack/query/issues/4052#issuecomment-1296174282
 /**
  * Set this globally to use Convex query functions.
  *
@@ -71,13 +86,13 @@ export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
 }
 
 /**
- * Client that subscribes to events from a TanStack Query QueryClient and populates
- * query results in it for Convex Queries.
+ * Subscribes to events from a TanStack Query QueryClient and populates query
+ * results in it for all Convex query function subscriptions.
  */
 export class ConvexQueryClient {
   convexClient: ConvexReactClient;
   subscriptions: Record<
-    string,
+    string, // queryKey hash
     {
       watch: Watch<any>;
       unsubscribe: () => void;
@@ -85,10 +100,19 @@ export class ConvexQueryClient {
     }
   >;
   unsubscribe: (() => void) | undefined;
-  queryClient: QueryClient | undefined;
+  _queryClient: QueryClient | undefined;
+  get queryClient() {
+    if (!this._queryClient) {
+      throw new Error(
+        "ConvexQueryClient not connected to TanStack QueryClient."
+      );
+    }
+    return this._queryClient;
+  }
   constructor(
     /** A ConvexReactClient instance or a URL to use to instantiate one. */
     client: ConvexReactClient | string,
+    /** Options mostly for the ConvexReactClient to be constructed. */
     options: ConvexQueryClientOptions = {}
   ) {
     if (typeof client === "string") {
@@ -98,38 +122,53 @@ export class ConvexQueryClient {
     }
     this.subscriptions = {};
     if (options.queryClient) {
-      this.queryClient = options.queryClient;
+      this._queryClient = options.queryClient;
       this.unsubscribe = this.subscribeInner(
         options.queryClient.getQueryCache()
       );
     }
   }
+  /** Complete initialization of ConvexQueryClient by connecting a TanStack QueryClient */
   connect(queryClient: QueryClient) {
     if (this.unsubscribe) {
       throw new Error("already subscribed!");
     }
-    this.queryClient = queryClient;
+    this._queryClient = queryClient;
     this.unsubscribe = this.subscribeInner(queryClient.getQueryCache());
   }
 
-  // TODO this is updating every query when that's unnecessary since it's
-  // being called once per watch.
+  /** Update every query key. Probably not useful, don't use this. */
   onUpdate = () => {
-    console.log("got update!");
+    console.log("running ConvexQueryClient.onUpdate");
     // Fortunately this does not reset the gc time.
-    for (const [_key, { queryKey, watch }] of Object.entries(
-      this.subscriptions
-    )) {
-      this.queryClient!.setQueryData(queryKey, (prev) => {
-        if (prev === undefined) {
-          // If `prev` is undefined there is no react-query entry for this query key.
-          // Return `undefined` to signal not to create one.
-          return undefined;
-        }
-        return watch.localQueryResult();
-      });
+    for (const key of Object.keys(this.subscriptions)) {
+      this.onUpdateQueryKeyHash(key);
     }
   };
+  onUpdateQueryKeyHash(queryKeyHash: string) {
+    const subscription = this.subscriptions[queryKeyHash];
+    if (!subscription) {
+      // If we have no record of this subscription that should be a logic error.
+      throw new Error(
+        `Internal ConvexQueryClient error: onUpdateQueryKeyHash called for ${queryKeyHash}`
+      );
+    }
+    const { queryKey, watch } = subscription;
+    this.queryClient.setQueryData(queryKey, (prev) => {
+      if (prev === undefined) {
+        // If `prev` is undefined there is no react-query entry for this query key.
+        // Return `undefined` to signal not to create one.
+        return undefined;
+      }
+      try {
+        return watch.localQueryResult();
+      } catch (e) {
+        // There's no sync QueryClient.setQueryState() to use to set an error,
+        // so invalidate and this should? happen this tick
+        this.queryClient.invalidateQueries({ queryKey: queryKey });
+      }
+    });
+  }
 
   subscribeInner(queryCache: QueryCache): () => void {
     return queryCache.subscribe((event) => {
@@ -151,13 +190,17 @@ export class ConvexQueryClient {
         case "added": {
           console.log("Subscribing to", event.query.queryHash);
 
+          // There exists only one watch per subscription; but
+          // watches are stateless anyway, they're just util code.
           const watch = this.convexClient.watchQuery(
             // TODO pass journals through
             ...(event.query.queryKey as [FunctionReference<"query">, any, {}])
           );
           // TODO this runs once for each unique subscription but doesn't need to.
           // It should be running once, ever.
-          const unsubscribe = watch.onUpdate(this.onUpdate);
+          const unsubscribe = watch.onUpdate(() =>
+            this.onUpdateQueryKeyHash(event.query.queryHash)
+          );
 
           this.subscriptions[event.query.queryHash] = {
             queryKey: event.query.queryKey,
@@ -214,38 +257,10 @@ export class ConvexQueryClient {
   };
 
   /**
-   * Query options factory for Convex query subscriptions.
+   * Query options factory for Convex query function subscriptions.
    *
    * ```
-   * useQuery(convexQueryOptions(api.foo.bar, args))
-   * ```
-   *
-   * If you need to specify other options spread it:
-   * ```
-   * useQuery({
-   *   ...convexQueryOptions(api.foo.bar, args),
-   *   placeholderData: { name: "me" }
-   * });
-   * ```
-   * @deprecated this one doesnt work
-   */
-  queryOptionsOld<Query extends FunctionReference<"query", "public">>(
-    query: Query,
-    args: Query["_args"]
-  ) {
-    const queryKey: readonly [Query, Query["_args"]] = [query, args];
-    return {
-      queryFn: this.queryFn,
-      queryKey,
-      staleTime: Infinity,
-    };
-  }
-
-  /**
-   * Query options factory for Convex query subscriptions.
-   *
-   * ```
-   * useQuery(convexQueryOptions(api.foo.bar, args))
+   * useQuery(client.queryOptions(api.foo.bar, args))
    * ```
    *
    * If you need to specify other options spread it:
@@ -266,12 +281,13 @@ export class ConvexQueryClient {
       Query["_returnType"],
       [Query, Query["_args"]]
     >,
-    "queryKey" | "queryFn" | "staleTime"
+    "queryKey" | "queryFn" | "staleTime" | "retry"
   > {
     return {
       queryKey: [funcRef, queryArgs],
       queryFn: this.queryFn,
       staleTime: Infinity,
+      retry: false, // Convex retries over the WebSocket protocol.
     };
   }
 }
