@@ -11,17 +11,17 @@ All relevant subscriptions will be pushed to the client and updated at the same 
 
 This is in flux, see [./src/example.tsx](./src/example.tsx) for a real example.
 
-1. Create a ConvexClient and ConvexQueryClient
+1. Create a ConvexClient and ConvexQueryClient. Set a default `queryKeyHashFn`
+   and connect them.
 
 ```ts
 const convexClient = new ConvexReactClient(CONVEX_URL);
-const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
     queryKeyHashFn: convexQueryKeyHashFn,
   },
 });
-convexQueryClient.connect(queryClient);
+const convexQueryClient = new ConvexQueryClient(convexClient, { queryClient });
 ```
 
 2. Use `useQuery()` with the `api` object imported from `../convex/_generated/server` and the arguments for this query function.
@@ -29,14 +29,12 @@ convexQueryClient.connect(queryClient);
 
 ```ts
 const { isPending, error, data } = useQuery({
-  queryKey: [api.repos.get, { repo: "made/up" }],
-  queryFn: convexQueryClient.queryFn,
+  ...convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" }),
   gcTime: 10000, // unsubscribe after 10s of no use
-  staleTime: Infinity,
 });
 ```
 
-Set the `staleTime` to `Infinity` beacuse this data is never stale; it's proactively updated whenever the query result updates on the server. (see [tkdodo's post](https://tkdodo.eu/blog/using-web-sockets-with-react-query#increasing-staletime)
+`staleTime` is set to `Infinity` beacuse this data is never stale; it's proactively updated whenever the query result updates on the server. (see [tkdodo's post](https://tkdodo.eu/blog/using-web-sockets-with-react-query#increasing-staletime)
 for more about this)
 If you like, customize the `gcTime` to the length of time a query subscription should remain active after all `useQuery()` hooks using it have unmounted.
 
