@@ -80,11 +80,11 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 
 # TODO
 
-- two useQueries in the same components and an error infinite loops
 - auth
 - paginated queries
 - show an example of skip token (react-query uses `enabled: false`), should just work
 - check import completion (if users never import "convex/react" then useQuery shouldn't have both the Convex and TanStack implementations fighting it out in import completion suggestions)
+- cleanup / unsubscribe in useEffect; something with hot reloading isn't working right
 
 # Contributing
 

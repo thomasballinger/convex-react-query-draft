@@ -18,7 +18,6 @@ import "./styles.css";
 const convexClient = new ConvexReactClient(
   (import.meta as any).env.VITE_CONVEX_URL
 );
-const convexQueryClient = new ConvexQueryClient(convexClient);
 // The queryKeyHashFn needs to be set globally.
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,7 +26,7 @@ const queryClient = new QueryClient({
     },
   },
 });
-convexQueryClient.connect(queryClient);
+const convexQueryClient = new ConvexQueryClient(convexClient, { queryClient });
 
 export default function App() {
   return (
@@ -78,26 +77,24 @@ function Example() {
     convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
   );
   */
-  /*
   const stuff2 = queryClient.ensureQueryData(
     convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
   );
-  */
 
-  if (isPending) return "Loading...";
-
-  if (error) return "An error has occurred: " + error.message;
-
-  return (
-    <div>
-      <button onClick={forceRerender}>rerender</button>
-      <h4>{data.name}</h4>
-      <p>{data.description}</p>
-      <strong>👀 {data.subscribers_count}</strong>{" "}
-      <strong>✨ {data.stargazers_count}</strong>{" "}
-      <strong>🍴 {data.forks_count}</strong>
-    </div>
-  );
+  if (data) {
+    return (
+      <div>
+        <div>error: {error?.toString() || "none :)"}</div>
+        <div>isPending: {isPending}</div>
+        <button onClick={forceRerender}>rerender</button>
+        <h4>{data.name}</h4>
+        <p>{data.description}</p>
+        <strong>👀 {data.subscribers_count}</strong>{" "}
+        <strong>✨ {data.stargazers_count}</strong>{" "}
+        <strong>🍴 {data.forks_count}</strong>
+      </div>
+    );
+  }
 }
 
 const rootElement = document.getElementById("root")!;

@@ -139,35 +139,58 @@ export class ConvexQueryClient {
 
   /** Update every query key. Probably not useful, don't use this. */
   onUpdate = () => {
-    console.log("running ConvexQueryClient.onUpdate");
     // Fortunately this does not reset the gc time.
     for (const key of Object.keys(this.subscriptions)) {
       this.onUpdateQueryKeyHash(key);
     }
   };
-  onUpdateQueryKeyHash(queryKeyHash: string) {
-    const subscription = this.subscriptions[queryKeyHash];
+  onUpdateQueryKeyHash(queryHash: string) {
+    const subscription = this.subscriptions[queryHash];
     if (!subscription) {
       // If we have no record of this subscription that should be a logic error.
       throw new Error(
-        `Internal ConvexQueryClient error: onUpdateQueryKeyHash called for ${queryKeyHash}`
+        `Internal ConvexQueryClient error: onUpdateQueryKeyHash called for ${queryHash}`
       );
     }
+
+    const queryCache = this.queryClient.getQueryCache();
+    const query = queryCache.get(queryHash);
+    if (!query) return;
+
     const { queryKey, watch } = subscription;
-    this.queryClient.setQueryData(queryKey, (prev) => {
-      if (prev === undefined) {
-        // If `prev` is undefined there is no react-query entry for this query key.
-        // Return `undefined` to signal not to create one.
-        return undefined;
-      }
-      try {
-        return watch.localQueryResult();
-      } catch (e) {
-        // There's no sync QueryClient.setQueryState() to use to set an error,
-        // so invalidate and this should? happen this tick
-        this.queryClient.invalidateQueries({ queryKey: queryKey });
-      }
-    });
+    let result;
+    try {
+      result = { ok: true, value: watch.localQueryResult() };
+    } catch (e) {
+      result = { ok: false, error: e };
+    }
+
+    if (result.ok) {
+      this.queryClient.setQueryData(queryKey, (prev) => {
+        if (prev === undefined) {
+          // If `prev` is undefined there is no react-query entry for this query key.
+          // Return `undefined` to signal not to create one.
+          return undefined;
+        }
+        return result.value;
+      });
+    } else {
+      const { error } = result;
+      // TODO request an API for setting an error
+      // NB This is also how the devtools work so it's at least somewhat endorsed.
+      query?.setState(
+        {
+          error: error as Error,
+          errorUpdateCount: query.state.errorUpdateCount + 1,
+          errorUpdatedAt: Date.now(),
+          fetchFailureCount: query.state.fetchFailureCount + 1,
+          fetchFailureReason: error as Error,
+          fetchStatus: "idle",
+          status: "error",
+        },
+        { meta: "set by ConvexQueryClient" }
+      );
+    }
   }
 
   subscribeInner(queryCache: QueryCache): () => void {
@@ -188,8 +211,6 @@ export class ConvexQueryClient {
         // A query has been requested for the first time.
         // Subscribe to the query so we hold on to it.
         case "added": {
-          console.log("Subscribing to", event.query.queryHash);
-
           // There exists only one watch per subscription; but
           // watches are stateless anyway, they're just util code.
           const watch = this.convexClient.watchQuery(
@@ -198,9 +219,9 @@ export class ConvexQueryClient {
           );
           // TODO this runs once for each unique subscription but doesn't need to.
           // It should be running once, ever.
-          const unsubscribe = watch.onUpdate(() =>
-            this.onUpdateQueryKeyHash(event.query.queryHash)
-          );
+          const unsubscribe = watch.onUpdate(() => {
+            this.onUpdateQueryKeyHash(event.query.queryHash);
+          });
 
           this.subscriptions[event.query.queryHash] = {
             queryKey: event.query.queryKey,
@@ -231,7 +252,18 @@ export class ConvexQueryClient {
           break;
         }
         case "updated": {
-          console.log("updated by action", event.action.type);
+          if (
+            event.action.type === "setState" &&
+            event.action.setStateOptions?.meta === "set by ConvexQueryClient"
+          ) {
+            // we know what caused this one
+            break;
+          }
+          console.log(
+            "updated by action",
+            event.action.type,
+            event.query.queryHash
+          );
           break;
         }
         case "observerOptionsUpdated": {
@@ -251,7 +283,6 @@ export class ConvexQueryClient {
     context: QueryFunctionContext<readonly [T["_returnType"], T["_args"]]>
   ): Promise<T["_returnType"]> => {
     const [func, args] = context.queryKey;
-    console.log("running fetch function queryFn(", func, args, ")");
     const data = await this.convexClient.query(func, args);
     return data;
   };
@@ -281,13 +312,12 @@ export class ConvexQueryClient {
       Query["_returnType"],
       [Query, Query["_args"]]
     >,
-    "queryKey" | "queryFn" | "staleTime" | "retry"
+    "queryKey" | "queryFn" | "staleTime"
   > {
     return {
       queryKey: [funcRef, queryArgs],
       queryFn: this.queryFn,
       staleTime: Infinity,
-      retry: false, // Convex retries over the WebSocket protocol.
     };
   }
 }
