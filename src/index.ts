@@ -14,7 +14,8 @@ import { FunctionReference, getFunctionName } from "convex/server";
 import { convexToJson } from "convex/values";
 
 // Re-export React Query-friendly names for Convex hooks.
-// This usually prevents autocompleting `useQuery`
+// Never importing "convex/react" from application code should
+// prevent import completion of the Convex `useQuery`.
 export {
   useQuery as useConvexQuery,
   useQueries as useConvexQueries,
@@ -23,8 +24,6 @@ export {
   useAction as useConvexAction,
   useConvex,
   useConvexAuth,
-  // Not required if you use TanStack Query for all preloading.
-  //usePreloadedQuery as useConvexPreloadedQuery,
   optimisticallyUpdateValueInPaginatedQuery,
 } from "convex/react";
 
@@ -158,26 +157,29 @@ export class ConvexQueryClient {
     if (!query) return;
 
     const { queryKey, watch } = subscription;
-    let result;
+    let result: { ok: true; value: any } | { ok: false; error: unknown };
     try {
       result = { ok: true, value: watch.localQueryResult() };
-    } catch (e) {
-      result = { ok: false, error: e };
+    } catch (error) {
+      result = { ok: false, error };
     }
 
     if (result.ok) {
+      const value = result.value;
       this.queryClient.setQueryData(queryKey, (prev) => {
         if (prev === undefined) {
           // If `prev` is undefined there is no react-query entry for this query key.
           // Return `undefined` to signal not to create one.
           return undefined;
         }
-        return result.value;
+        return value;
       });
     } else {
       const { error } = result;
-      // TODO request an API for setting an error
-      // NB This is also how the devtools work so it's at least somewhat endorsed.
+      // TODO This may not be a stable API. Devtools work this way so it's at
+      // least used elsewhere. Either trigger a query by invalidating this query
+      // (only feasible if guaranteed to update before the next tick) or
+      // look into a `QueryClient.setQueryError` API.
       query?.setState(
         {
           error: error as Error,
@@ -203,7 +205,6 @@ export class ConvexQueryClient {
         // A query has been GC'd so no stale value will be available.
         // In Convex this means we should unsubscribe.
         case "removed": {
-          console.log("Unsubscribing from", event.query.queryHash);
           this.subscriptions[event.query.queryHash].unsubscribe();
           delete this.subscriptions[event.query.queryHash];
           break;
@@ -217,8 +218,6 @@ export class ConvexQueryClient {
             // TODO pass journals through
             ...(event.query.queryKey as [FunctionReference<"query">, any, {}])
           );
-          // TODO this runs once for each unique subscription but doesn't need to.
-          // It should be running once, ever.
           const unsubscribe = watch.onUpdate(() => {
             this.onUpdateQueryKeyHash(event.query.queryHash);
           });
@@ -237,13 +236,10 @@ export class ConvexQueryClient {
         // Runs when a useQuery unmounts
         case "observerRemoved": {
           if (event.query.getObserversCount() === 0) {
-            console.log(
-              "Last useQuery subscribed to this query has unmounted:",
-              event.query.queryKey,
-              "so query will be unsubscribed in",
-              event.query.gcTime / 1000,
-              "seconds"
-            );
+            // The last useQuery subscribed to this query has unmounted.
+            // But don't clean up yet, after gcTime a "removed" event
+            // will notify that it's time to drop the subscription to
+            // the Convex backend.
           }
           break;
         }
@@ -256,18 +252,14 @@ export class ConvexQueryClient {
             event.action.type === "setState" &&
             event.action.setStateOptions?.meta === "set by ConvexQueryClient"
           ) {
-            // we know what caused this one
+            // This one was caused by us. This may be important to know for
+            // breaking infinite loops in the future.
             break;
           }
-          console.log(
-            "updated by action",
-            event.action.type,
-            event.query.queryHash
-          );
           break;
         }
         case "observerOptionsUpdated": {
-          console.log("observerOptionsUpdated, likely bc unmemoized query key");
+          // observerOptionsUpdated, often because of an unmemoized query key
           break;
         }
       }
