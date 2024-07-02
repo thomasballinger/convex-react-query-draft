@@ -83,14 +83,10 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 # TODO
 
 - two useQueries in the same components and an error infinite loops
-- adding more useQuery hooks for the same query should not retry the query.
-- roll this up into a library
 - auth
 - paginated queries
-- skip token?
-- pushing new code should invalidate, even for errors?
-- Ideally users never import "convex/react" so that useQuery is never offered as an autoimport;
-  re-expose these as useConvexQuery etc.
+- show an example of skip token (react-query uses `enabled: false`), should just work
+- check import completion (if users never import "convex/react" then useQuery shouldn't have both the Convex and TanStack implementations fighting it out in import completion suggestions)
 
 # Contributing
 
