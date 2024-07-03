@@ -16,7 +16,9 @@ See [./src/example.tsx](./src/example.tsx) for a real example. The general patte
 ```ts
 const queryClient = new QueryClient({
   defaultOptions: {
-    queryKeyHashFn: convexQueryKeyHashFn,
+    queries: {
+      queryKeyHashFn: convexQueryKeyHashFn,
+    },
   },
 });
 const convexClient = new ConvexReactClient(CONVEX_URL);
@@ -79,6 +81,7 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 
 # TODO
 
+- nonreactive examples, change API to make reactivity more explicit
 - auth
 - paginated queries
 - show an example of skip token (react-query uses `enabled: false`), should just work
