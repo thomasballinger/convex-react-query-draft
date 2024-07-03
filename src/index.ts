@@ -294,7 +294,7 @@ export class ConvexQueryClient {
    * });
    * ```
    */
-  queryOptions<Query extends FunctionReference<"query">>(
+  queryOptions = <Query extends FunctionReference<"query">>(
     funcRef: Query,
     queryArgs: Query["_args"]
   ): Pick<
@@ -305,11 +305,11 @@ export class ConvexQueryClient {
       [Query, Query["_args"]]
     >,
     "queryKey" | "queryFn" | "staleTime"
-  > {
+  > => {
     return {
       queryKey: [funcRef, queryArgs],
       queryFn: this.queryFn,
       staleTime: Infinity,
     };
-  }
+  };
 }
