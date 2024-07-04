@@ -272,11 +272,13 @@ export class ConvexQueryClient {
    * This data is often already cached.
    */
   queryFn = async <T extends FunctionReference<"query", "public">>(
-    context: QueryFunctionContext<readonly [T["_returnType"], T["_args"]]>
+    context: QueryFunctionContext<ReadonlyArray<unknown>>
   ): Promise<T["_returnType"]> => {
-    const [func, args] = context.queryKey;
-    const data = await this.convexClient.query(func, args);
-    return data;
+    if (isConvexQuery(context.queryKey)) {
+      const [func, args] = context.queryKey;
+      const data = await this.convexClient.query(func, args);
+      return data;
+    }
   };
 
   /**
@@ -313,3 +315,21 @@ export class ConvexQueryClient {
     };
   };
 }
+
+export const convexQueryOptions = <Query extends FunctionReference<"query">>(
+  funcRef: Query,
+  queryArgs: Query["_args"]
+): Pick<
+  UseQueryOptions<
+    Query["_returnType"],
+    Error,
+    Query["_returnType"],
+    [Query, Query["_args"]]
+  >,
+  "queryKey" | "staleTime"
+> => {
+  return {
+    queryKey: [funcRef, queryArgs],
+    staleTime: Infinity,
+  };
+};

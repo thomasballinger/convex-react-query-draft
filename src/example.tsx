@@ -6,27 +6,33 @@ import {
   QueryClientProvider,
   useMutation,
   useQuery,
-  useSuspenseQuery,
 } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConvexReactClient } from "convex/react";
 import { api } from "../convex/_generated/api.js";
-import { ConvexQueryClient, convexQueryKeyHashFn } from "./index.js";
+import {
+  ConvexQueryClient,
+  convexQueryKeyHashFn,
+  convexQueryOptions,
+} from "./index.js";
 import "./styles.css";
 
 // Build a global convexClient wherever you would normally create a TanStack Query client.
 const convexClient = new ConvexReactClient(
   (import.meta as any).env.VITE_CONVEX_URL
 );
-// The queryKeyHashFn needs to be set globally.
+const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // The queryKeyHashFn needs to be set globally: it cannot be specified in `setQueryData()`.
       queryKeyHashFn: convexQueryKeyHashFn,
+      // The queryFn is convenient to set globally to avoid needing to import everywhere.
+      queryFn: convexQueryClient.queryFn,
     },
   },
 });
-const convexQueryClient = new ConvexQueryClient(convexClient, { queryClient });
+convexQueryClient.connect(queryClient);
 
 export default function App() {
   return (
@@ -68,17 +74,8 @@ function Example() {
   const [, setRerender] = useState<any>();
   const forceRerender = () => setRerender({});
 
-  const { isPending, error, data } = useQuery({
-    ...convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" }),
-  });
-
-  /*
-  const stuff = useSuspenseQuery(
-    convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
-  );
-  */
-  const stuff2 = queryClient.ensureQueryData(
-    convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" })
+  const { isPending, error, data } = useQuery(
+    convexQueryOptions(api.repos.get, { repo: "made/up" })
   );
 
   if (data) {

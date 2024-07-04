@@ -14,15 +14,19 @@ See [./src/example.tsx](./src/example.tsx) for a real example. The general patte
 1. Create a ConvexClient and ConvexQueryClient. Set a global default `queryKeyHashFn` of `convexQueryKeyHashFn`.
 
 ```ts
+const convexClient = new ConvexReactClient(
+  (import.meta as any).env.VITE_CONVEX_URL
+);
+const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryKeyHashFn: convexQueryKeyHashFn,
+      queryFn: convexQueryClient.queryFn,
     },
   },
 });
-const convexClient = new ConvexReactClient(CONVEX_URL);
-const convexQueryClient = new ConvexQueryClient(convexClient, { queryClient });
+convexQueryClient.connect(queryClient);
 ```
 
 2. Use `useQuery()` with the `queryOptions` method of `convexQueryClient` on an `api` object imported from `../convex/_generated/server` and the arguments for this query function.
@@ -30,7 +34,7 @@ const convexQueryClient = new ConvexQueryClient(convexClient, { queryClient });
 
 ```ts
 const { isPending, error, data } = useQuery({
-  ...convexQueryClient.queryOptions(api.repos.get, { repo: "made/up" }),
+  ...convexQueryOptions(api.repos.get, { repo: "made/up" }),
   gcTime: 10000, // unsubscribe after 10s of no use
 });
 ```
@@ -82,6 +86,8 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 # TODO
 
 - nonreactive examples, change API to make reactivity more explicit
+  - rename ConvexQueryCLient to WebSocketClient? LiveQueries? ReactiveClient?
+  - rename convexQueryKeyHashFn to queryKeyHashFn? is that too cute?
 - auth
 - paginated queries
 - show an example of skip token (react-query uses `enabled: false`), should just work
