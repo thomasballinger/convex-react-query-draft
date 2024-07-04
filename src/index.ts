@@ -5,6 +5,7 @@ import {
   UseQueryOptions,
   hashKey,
 } from "@tanstack/react-query";
+import { ConvexHttpClient } from "convex/browser";
 import {
   ConvexReactClient,
   ConvexReactClientOptions,
@@ -26,6 +27,8 @@ export {
   useConvexAuth,
   optimisticallyUpdateValueInPaginatedQuery,
 } from "convex/react";
+
+const isServer = typeof window === "undefined";
 
 const functionName = Symbol.for("functionName");
 function isConvexQuery(
@@ -80,7 +83,7 @@ export const convexQueryKeyHashFnMiddleware =
   };
 
 export interface ConvexQueryClientOptions extends ConvexReactClientOptions {
-  /** queryClient can also be set later by calling .connect(queryClient) */
+  /** queryClient can also be set later by calling .connect(ReactqueryClient) */
   queryClient?: QueryClient;
 }
 
@@ -196,6 +199,7 @@ export class ConvexQueryClient {
   }
 
   subscribeInner(queryCache: QueryCache): () => void {
+    if (isServer) return () => {};
     return queryCache.subscribe((event) => {
       if (!isConvexQuery(event.query.queryKey)) {
         return;
@@ -276,9 +280,19 @@ export class ConvexQueryClient {
   ): Promise<T["_returnType"]> => {
     if (isConvexQuery(context.queryKey)) {
       const [func, args] = context.queryKey;
-      const data = await this.convexClient.query(func, args);
-      return data;
+      if (isServer) {
+        const client = new ConvexHttpClient(
+          // TODO expose this private property
+          (this.convexClient as any).address as string
+        );
+        const data = await client.query(func, args);
+        return data;
+      } else {
+        const data = await this.convexClient.query(func, args);
+        return data;
+      }
     }
+    throw new Error("Query key is not for a Convex Query: " + context.queryKey);
   };
 
   /**
