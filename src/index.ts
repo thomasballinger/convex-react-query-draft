@@ -34,7 +34,9 @@ const functionName = Symbol.for("functionName");
 function isConvexQuery(
   queryKey: readonly any[]
 ): queryKey is [FunctionReference<"query">, Record<string, any>, {}] {
-  return !!(queryKey[0] && queryKey[0][functionName]);
+  // while we're using strings
+  return queryKey.length === 2 && queryKey[0]?.includes(":");
+  //return !!(queryKey[0] && queryKey[0][functionName]);
 }
 
 // This must be set globally, see
@@ -323,7 +325,11 @@ export class ConvexQueryClient {
     "queryKey" | "queryFn" | "staleTime"
   > => {
     return {
-      queryKey: [funcRef, queryArgs],
+      queryKey: [
+        // Make query key serializeable
+        getFunctionName(funcRef) as unknown as typeof funcRef,
+        queryArgs,
+      ],
       queryFn: this.queryFn,
       staleTime: Infinity,
     };
@@ -343,7 +349,11 @@ export const convexQueryOptions = <Query extends FunctionReference<"query">>(
   "queryKey" | "staleTime"
 > => {
   return {
-    queryKey: [funcRef, queryArgs],
+    queryKey: [
+      // Make query key serializeable
+      getFunctionName(funcRef) as unknown as typeof funcRef,
+      queryArgs,
+    ],
     staleTime: Infinity,
   };
 };
