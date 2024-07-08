@@ -13,7 +13,7 @@ import { api } from "../convex/_generated/api.js";
 import {
   ConvexQueryClient,
   convexQueryKeyHashFn,
-  convexQueryOptions,
+  convexQuery,
 } from "./index.js";
 import "./styles.css";
 
@@ -75,7 +75,7 @@ function Example() {
   const forceRerender = () => setRerender({});
 
   const { isPending, error, data } = useQuery(
-    convexQueryOptions(api.repos.get, { repo: "made/up" })
+    convexQuery(api.repos.get, { repo: "made/up" })
   );
 
   if (data) {

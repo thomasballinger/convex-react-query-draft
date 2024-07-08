@@ -14,9 +14,7 @@ See [./src/example.tsx](./src/example.tsx) for a real example. The general patte
 1. Create a ConvexClient and ConvexQueryClient. Set a global default `queryKeyHashFn` of `convexQueryKeyHashFn`.
 
 ```ts
-const convexClient = new ConvexReactClient(
-  (import.meta as any).env.VITE_CONVEX_URL
-);
+const convexClient = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 const convexQueryClient = new ConvexQueryClient(convexClient);
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,14 +83,9 @@ See the [Convex Auth docs](https://docs.convex.dev/auth) for setup instructions.
 
 # TODO
 
-- nonreactive examples, change API to make reactivity more explicit
-  - rename ConvexQueryCLient to WebSocketClient? LiveQueries? ReactiveClient?
-  - rename convexQueryKeyHashFn to queryKeyHashFn? is that too cute?
 - auth
 - paginated queries
-- show an example of skip token (react-query uses `enabled: false`), should just work
-- check import completion (if users never import "convex/react" then useQuery shouldn't have both the Convex and TanStack implementations fighting it out in import completion suggestions)
-- cleanup / unsubscribe in useEffect; something with hot reloading isn't working right
+- cleanup / unsubscribe in useEffect; something with hot reloading may not be working right
 
 # Contributing
 

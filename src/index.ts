@@ -30,13 +30,21 @@ export {
 
 const isServer = typeof window === "undefined";
 
-const functionName = Symbol.for("functionName");
 function isConvexQuery(
   queryKey: readonly any[]
-): queryKey is [FunctionReference<"query">, Record<string, any>, {}] {
-  // while we're using strings
-  return queryKey.length === 2 && queryKey[0]?.includes(":");
-  //return !!(queryKey[0] && queryKey[0][functionName]);
+): queryKey is [
+  "convexQuery",
+  FunctionReference<"query">,
+  Record<string, any>,
+  {},
+] {
+  return queryKey.length >= 2 && queryKey[0] === "convexQuery";
+}
+
+function hash(
+  queryKey: ["convexQuery", FunctionReference<"query">, Record<string, any>, {}]
+): string {
+  return `convexQuery|${getFunctionName(queryKey[1])}|${JSON.stringify(convexToJson(queryKey[2]))}`;
 }
 
 // This must be set globally, see
@@ -57,7 +65,7 @@ export const convexQueryKeyHashFn = <QueryKey extends readonly any[]>(
   queryKey: QueryKey
 ): string => {
   if (isConvexQuery(queryKey)) {
-    return `convex-query|${getFunctionName(queryKey[0])}-${JSON.stringify(convexToJson(queryKey[1]))}`;
+    return hash(queryKey);
   }
   return hashKey(queryKey);
 };
@@ -79,7 +87,7 @@ export const convexQueryKeyHashFnMiddleware =
   (next: (queryKey: ReadonlyArray<unknown>) => string) =>
   (queryKey: ReadonlyArray<unknown>) => {
     if (isConvexQuery(queryKey)) {
-      return `convex-query-${getFunctionName(queryKey[0])}-${JSON.stringify(convexToJson(queryKey[1]))}`;
+      return hash(queryKey);
     }
     return next(queryKey);
   };
@@ -100,7 +108,12 @@ export class ConvexQueryClient {
     {
       watch: Watch<any>;
       unsubscribe: () => void;
-      queryKey: [FunctionReference<"query">, Record<string, any>, options?: {}];
+      queryKey: [
+        "convexQuery",
+        FunctionReference<"query">,
+        Record<string, any>,
+        options?: {},
+      ];
     }
   >;
   unsubscribe: (() => void) | undefined;
@@ -220,9 +233,17 @@ export class ConvexQueryClient {
         case "added": {
           // There exists only one watch per subscription; but
           // watches are stateless anyway, they're just util code.
+          const [_, func, args, _opts] = event.query.queryKey as [
+            "convexQuery",
+            FunctionReference<"query">,
+            any,
+            {},
+          ];
           const watch = this.convexClient.watchQuery(
+            func,
+            args,
             // TODO pass journals through
-            ...(event.query.queryKey as [FunctionReference<"query">, any, {}])
+            {}
           );
           const unsubscribe = watch.onUpdate(() => {
             this.onUpdateQueryKeyHash(event.query.queryHash);
@@ -273,15 +294,14 @@ export class ConvexQueryClient {
   }
 
   /**
-   * Returns a promise for the query result of a query key containing `[FunctionReference, args]`.
-   *
-   * This data is often already cached.
+   * Returns a promise for the query result of a query key containing `['convexQuery', FunctionReference, args]`
+   * and subscribes via WebSocket to future updates.
    */
   queryFn = async <T extends FunctionReference<"query", "public">>(
     context: QueryFunctionContext<ReadonlyArray<unknown>>
   ): Promise<T["_returnType"]> => {
     if (isConvexQuery(context.queryKey)) {
-      const [func, args] = context.queryKey;
+      const [_, func, args] = context.queryKey;
       if (isServer) {
         const client = new ConvexHttpClient(
           // TODO expose this private property
@@ -307,7 +327,7 @@ export class ConvexQueryClient {
    * If you need to specify other options spread it:
    * ```
    * useQuery({
-   *   ...convexQueryOptions(api.foo.bar, args),
+   *   ...convexQueryClient.queryOptions(api.foo.bar, args),
    *   placeholderData: { name: "me" }
    * });
    * ```
@@ -320,14 +340,16 @@ export class ConvexQueryClient {
       Query["_returnType"],
       Error,
       Query["_returnType"],
-      [Query, Query["_args"]]
+      ["convexQuery", Query, Query["_args"]]
     >,
     "queryKey" | "queryFn" | "staleTime"
   > => {
     return {
       queryKey: [
+        "convexQuery",
         // Make query key serializeable
         getFunctionName(funcRef) as unknown as typeof funcRef,
+        // TODO bigints are not serializeable
         queryArgs,
       ],
       queryFn: this.queryFn,
@@ -336,7 +358,23 @@ export class ConvexQueryClient {
   };
 }
 
-export const convexQueryOptions = <Query extends FunctionReference<"query">>(
+/**
+ * Query options factory for Convex query function subscriptions.
+ * This options factory requires the Convex queryFn has been set globally.
+ *
+ * ```
+ * useQuery(convexQuery(api.foo.bar, args))
+ * ```
+ *
+ * If you need to specify other options spread it:
+ * ```
+ * useQuery({
+ *   ...convexQuery(api.foo.bar, args),
+ *   placeholderData: { name: "me" }
+ * });
+ * ```
+ */
+export const convexQuery = <Query extends FunctionReference<"query">>(
   funcRef: Query,
   queryArgs: Query["_args"]
 ): Pick<
@@ -344,14 +382,16 @@ export const convexQueryOptions = <Query extends FunctionReference<"query">>(
     Query["_returnType"],
     Error,
     Query["_returnType"],
-    [Query, Query["_args"]]
+    ["convexQuery", Query, Query["_args"]]
   >,
   "queryKey" | "staleTime"
 > => {
   return {
     queryKey: [
+      "convexQuery",
       // Make query key serializeable
       getFunctionName(funcRef) as unknown as typeof funcRef,
+      // TODO bigints are not serializeable
       queryArgs,
     ],
     staleTime: Infinity,
